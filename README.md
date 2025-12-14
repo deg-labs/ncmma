@@ -71,7 +71,7 @@ docker-compose up --build -d
 ### 3. 動作確認
 `ncmma` デーモンのログを確認できます。
 ```shell
-docker-compose logs -f ncmma_notifier
+docker-compose logs -f ncmma-notifier
 ```
 
 ## アプリケーションの停止
