@@ -170,11 +170,10 @@ class CmmaPriceMonitor:
             self.logger.error(f"Error during log cleanup: {e}")
     
     
-    def _generate_notification_hash(self, symbol, price_change, direction):
+    def _generate_notification_hash(self, symbol, direction):
         """トークンの通知用ハッシュを生成"""
-        # シンボル + 変動方向 + 時間足 + 価格変動率の範囲でハッシュ化（5%刻み）
-        price_range = int(abs(price_change) // 5) * 5
-        hash_input = f"{symbol}_{direction}_{self.timeframe}_{price_range}"
+        # シンボル + 変動方向 + 時間足でハッシュ化
+        hash_input = f"{symbol}_{direction}_{self.timeframe}"
         return hashlib.md5(hash_input.encode()).hexdigest()
     
     def _should_notify(self, notification_hash):
@@ -260,7 +259,7 @@ class CmmaPriceMonitor:
         for token in token_data:
             change_pct = token['change']['pct']
             direction = token['change']['direction']
-            notification_hash = self._generate_notification_hash(token['symbol'], change_pct, direction)
+            notification_hash = self._generate_notification_hash(token['symbol'], direction)
             
             if self._should_notify(notification_hash):
                 filtered_tokens.append((token, notification_hash))
