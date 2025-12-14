@@ -10,4 +10,10 @@ services:
       - ./ncmma/logs:/app/logs
       - ./ncmma/cache:/app/cache
       - ./ncmma/data:/app/data
-    restart: unless-stopped
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
