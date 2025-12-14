@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ncmma_notifier:
+    build:
+      context: ./ncmma
+    env_file:
+      - ./ncmma/.env
+    volumes:
+      - ./ncmma/logs:/app/logs
+      - ./ncmma/cache:/app/cache
+      - ./ncmma/data:/app/data
+    restart: unless-stopped
