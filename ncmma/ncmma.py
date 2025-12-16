@@ -52,7 +52,7 @@ class CmmaPriceMonitor:
             load_dotenv()
         
         self.discord_webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
-        self.api_url = os.getenv('CMMA_API_URL', 'https://stg.api.1btc.love/volatility')
+        self.volatility_api_url = os.getenv('CMMA_API_URL', 'https://stg.api.1btc.love/volatility')
         
         # APIクエリパラメータ
         self.timeframe = os.getenv('TIMEFRAME', '4h')
@@ -69,6 +69,11 @@ class CmmaPriceMonitor:
         
         # ログ設定
         self.log_max_size_mb = int(os.getenv('LOG_MAX_SIZE_MB', '10'))
+
+        # 出来高フィルター設定
+        self.volume_api_url = os.getenv('CMMA_VOLUME_API_URL', 'https://stg.api.1btc.love/volume')
+        self.volume_threshold = float(os.getenv('VOLUME_THRESHOLD', '0.0'))
+
 
     def _init_db(self):
         """データベースの初期化"""
@@ -225,7 +230,7 @@ class CmmaPriceMonitor:
         }
         try:
             self.logger.info(f"Fetching data from CMMA API with params: {params}")
-            response = requests.get(self.api_url, params=params, timeout=30)
+            response = requests.get(self.volatility_api_url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
@@ -248,6 +253,41 @@ class CmmaPriceMonitor:
         except Exception as e:
             self.logger.error(f"An unexpected error occurred during API fetch: {e}")
             return []
+
+    def fetch_volume_data(self, symbols: list):
+        """CMMA APIから出来高データを取得"""
+        if not self.volume_threshold > 0 or not symbols:
+            return {}
+
+        params = {
+            'timeframe': self.timeframe,
+            'symbols': ",".join(symbols)
+        }
+        try:
+            self.logger.info(f"Fetching volume data from CMMA API for {len(symbols)} symbols")
+            response = requests.get(self.volume_api_url, params=params, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+            if 'data' in data:
+                self.logger.info(f"Successfully fetched volume data for {len(data['data'])} symbols.")
+                return {item['symbol']: item['volume'] for item in data['data']}
+            elif 'error' in data:
+                self.logger.error(f"API Error from CMMA volume endpoint: {data['error']}")
+                return {}
+            else:
+                self.logger.info("No volume data found from CMMA API.")
+                return {}
+
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Request error while fetching from CMMA volume API: {e}")
+            return {}
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to decode JSON response from CMMA volume API: {e}")
+            return {}
+        except Exception as e:
+            self.logger.error(f"An unexpected error occurred during volume API fetch: {e}")
+            return {}
         
     def send_discord_notification(self, token_data):
         """Discordに通知を送信（重複チェック付き）"""
@@ -295,10 +335,14 @@ class CmmaPriceMonitor:
             change_pct = token['change']['pct']
             direction_char = "📈" if token['change']['direction'] == 'up' else "📉"
             sign = "+" if token['change']['direction'] == 'up' else ""
-            
+
+            value = f"**{sign}{change_pct:.2f}%**\n`{token['price']['prev_close']:.6f}` → `{token['price']['close']:.6f}`"
+            if 'volume' in token:
+                value += f"\nVolume: `{token['volume']:,.2f}`"
+
             embed["fields"].append({
                 "name": f"{direction_char} {token['symbol']}",
-                "value": f"**{sign}{change_pct:.2f}%**\n`{token['price']['prev_close']:.6f}` → `{token['price']['close']:.6f}`",
+                "value": value,
                 "inline": True
             })
         
@@ -408,12 +452,34 @@ class CmmaPriceMonitor:
 
         significant_moves = self.fetch_volatility_data()
         
+        if significant_moves and self.volume_threshold > 0:
+            self.logger.info(f"Applying volume filter with threshold: {self.volume_threshold:,.2f}")
+            symbols_to_check = [token['symbol'] for token in significant_moves]
+            volume_data = self.fetch_volume_data(symbols_to_check)
+
+            if volume_data:
+                filtered_moves = []
+                for token in significant_moves:
+                    symbol = token['symbol']
+                    volume = volume_data.get(symbol)
+                    if volume is not None and volume >= self.volume_threshold:
+                        token['volume'] = volume
+                        filtered_moves.append(token)
+                    else:
+                        self.logger.info(f"Symbol {symbol} filtered out by volume. Volume: {volume}, Threshold: {self.volume_threshold:,.2f}")
+                
+                self.logger.info(f"{len(significant_moves)} tokens -> {len(filtered_moves)} tokens after volume filter.")
+                significant_moves = filtered_moves
+            else:
+                self.logger.warning("Could not fetch volume data. Skipping volume filter.")
+
+
         # 実行時間計算
         execution_time = datetime.now() - start_time
         
         # 結果サマリー
         self.logger.info(f"Batch job completed in {execution_time.total_seconds():.1f}s")
-        self.logger.info(f"Found {len(significant_moves)} tokens with {self.threshold}%+ change")
+        self.logger.info(f"Found {len(significant_moves)} tokens meeting criteria")
         
         # 結果をファイルに保存
         self._save_results(significant_moves, {
@@ -440,6 +506,7 @@ class CmmaPriceMonitor:
             'threshold': self.threshold,
             'timeframe': self.timeframe,
             'direction': self.direction,
+            'volume_threshold': self.volume_threshold,
             'total_found': len(significant_moves),
             'stats': stats,
             'tokens': significant_moves
@@ -468,7 +535,7 @@ def main():
             
             # 結果出力
             if significant_moves:
-                print(f"SUCCESS: {len(significant_moves)} tokens found with {monitor.threshold}%+ change")
+                print(f"SUCCESS: {len(significant_moves)} tokens found meeting criteria")
                 
                 # 上位5件を表示
                 print("Top moving tokens:")
@@ -476,7 +543,7 @@ def main():
                     sign = "+" if token['change']['direction'] == 'up' else ""
                     print(f"  {i}. {token['symbol']}: {sign}{token['change']['pct']:.2f}%")
             else:
-                print(f"INFO: No tokens found with {monitor.threshold}%+ change")
+                print(f"INFO: No tokens found meeting criteria")
             
             print(f"Waiting for {monitor.check_interval_seconds} seconds until the next check...")
             time.sleep(monitor.check_interval_seconds)
