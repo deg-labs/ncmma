@@ -26,7 +26,8 @@
 このデーモンは、`cmma` APIサーバーが別途稼働していることを前提としています。`cmma` APIは、仮想通貨のOHLCVデータを収集・提供するAPIサーバーです。
 
 ## 機能
-- **CMMA API 連携**: `cmma` APIの `/volatility` エンドポイントから価格変動データを取得します。
+- **CMMA API 連携**: `cmma` APIの `/volatility` および `/volume` エンドポイントから価格変動・出来高データを取得します。
+- **出来高フィルター**: 出来高が指定した閾値を超えた銘柄のみを通知するフィルタリング機能（オプション）。
 - **Discord 通知**: 設定された閾値以上の価格変動があった銘柄をDiscordの指定チャンネルに通知します。
 - **重複通知防止**: SQLiteデータベースに通知履歴を保存し、一定期間内の重複通知を防ぎます。
 - **設定可能な監視条件**: 時間足、変動閾値、変動方向、再通知間隔などを `.env` ファイルで柔軟に設定できます。
@@ -48,12 +49,14 @@ cp ncmma/.env.example ncmma/.env
 
 `ncmma/.env` で以下の変数を設定できます（詳細は `.env.example` を参照）。
 - `DISCORD_WEBHOOK_URL`: DiscordのWebhook URL（必須）
-- `CMMA_API_URL`: CMMA APIのエンドポイントURL
+- `CMMA_VOLATILITY_API_URL`: CMMA APIの価格変動エンドポイントURL
   - ローカルでの検証の場合、[GitHub - deg-labs/cmma: Bybitの上場銘柄から上昇率を取得するAPIサーバ](https://github.com/deg-labs/cmma) を参照して`cmma` APIサーバーを起動してください。  
 - `TIMEFRAME`, `THRESHOLD`, `DIRECTION`, `OFFSET`, `SORT`, `LIMIT`: CMMA APIへのクエリパラメータ
 - `MAX_NOTIFICATIONS`: 1回の通知で送信する最大トークン数
 - `RENOTIFY_BUFFER_MINUTES`: 同一トークン/変動範囲に対する再通知までの待機時間（分）
 - `CHECK_INTERVAL_SECONDS`: APIチェックサイクルの間隔（秒）
+- `VOLUME_THRESHOLD`: 通知対象とするための最低出来高（オプション、例: 1000000）。0または未設定の場合は無効。
+- `CMMA_VOLUME_API_URL`: 出来高データを取得するためのCMMA APIエンドポイントURL。
 
 ### 2. デーモンの起動
 プロジェクトルートで以下のコマンドを実行し、`ncmma` デーモンをビルドして起動します。
@@ -106,7 +109,7 @@ graph TD
     end
 
     %% Data Flow
-    NcmmaNotifier -- "Fetch Volatility Data <br> (HTTP GET /volatility)" --> CmmaAPI
+    NcmmaNotifier -- "Fetch Data <br> (GET /volatility, /volume)" --> CmmaAPI
     NcmmaNotifier -- "Read/Write Notification History" --> NcmmaDB
     NcmmaNotifier -- "Send Notification" --> Discord
 ```
