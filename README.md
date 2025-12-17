@@ -8,6 +8,7 @@
   - [必要要件](#%E5%BF%85%E8%A6%81%E8%A6%81%E4%BB%B6)
   - [実行方法](#%E5%AE%9F%E8%A1%8C%E6%96%B9%E6%B3%95)
     - [1. 環境変数の設定](#1-%E7%92%B0%E5%A2%83%E5%A4%89%E6%95%B0%E3%81%AE%E8%A8%AD%E5%AE%9A)
+    - [`volume` と `turnover` の違い](#volume-%E3%81%A8-turnover-%E3%81%AE%E9%81%95%E3%81%84)
     - [2. デーモンの起動](#2-%E3%83%87%E3%83%BC%E3%83%A2%E3%83%B3%E3%81%AE%E8%B5%B7%E5%8B%95)
     - [3. 動作確認](#3-%E5%8B%95%E4%BD%9C%E7%A2%BA%E8%AA%8D)
   - [アプリケーションの停止](#%E3%82%A2%E3%83%97%E3%83%AA%E3%82%B1%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3%E3%81%AE%E5%81%9C%E6%AD%A2)
@@ -55,7 +56,7 @@ cp ncmma/.env.example ncmma/.env
 - `MAX_NOTIFICATIONS`: 1回の通知で送信する最大トークン数
 - `RENOTIFY_BUFFER_MINUTES`: 同一トークン/変動範囲に対する再通知までの待機時間（分）
 - `CHECK_INTERVAL_SECONDS`: APIチェックサイクルの間隔（秒）
-- `VOLUME_THRESHOLD`: 通知対象とするための最低出来高（Turnover）（オプション、例: 1000000）。0または未設定の場合は無効。
+- `VOLUME_THRESHOLD`: 通知対象とするための最低出来高（Turnover）の閾値（オプション、例: 1000000）。この値が`0`または未設定の場合、出来高フィルターは無効になります。`VOLUME_THRESHOLD`は出来高フィルターのスイッチの役割を果たします。例えば、`VOLUME_THRESHOLD=1`、`CMMA_VOLUME_API_LIMIT=20`、`CMMA_VOLUME_API_SORT="turnover_desc"`と設定することで、出来高（Turnover）上位20位以内の銘柄に絞り込むことが可能です。
 - `CMMA_VOLUME_API_URL`: 出来高データを取得するためのCMMA APIエンドポイントURL。
 - `CMMA_VOLUME_API_SORT`, `CMMA_VOLUME_API_LIMIT`: 出来高APIのソート順と取得件数
 
