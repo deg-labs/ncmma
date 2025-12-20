@@ -58,8 +58,8 @@ class CmmaPriceMonitor:
         self.timeframe = os.getenv('TIMEFRAME', '4h')
         self.threshold = float(os.getenv('THRESHOLD', '5.0'))
         self.direction = os.getenv('DIRECTION', 'up')
-        self.sort = os.getenv('SORT', 'volatility_desc')
-        self.limit = int(os.getenv('LIMIT', '100'))
+        self.volatility_sort = os.getenv('CMMA_VOLATILITY_API_SORT', 'volatility_desc')
+        self.volatility_limit = int(os.getenv('CMMA_VOLATILITY_API_LIMIT', '100'))
         self.offset = int(os.getenv('OFFSET', '5'))
 
         # 監視設定
@@ -75,6 +75,8 @@ class CmmaPriceMonitor:
         self.volume_threshold = float(os.getenv('VOLUME_THRESHOLD', '0.0'))
         self.volume_timeframe = os.getenv('VOLUME_TIMEFRAME', '1h')
         self.volume_period = os.getenv('VOLUME_PERIOD', '24h')
+        self.volume_sort = os.getenv('CMMA_VOLUME_API_SORT', 'turnover_desc')
+        self.volume_limit = int(os.getenv('CMMA_VOLUME_API_LIMIT', '100'))
 
     def _init_db(self):
         """データベースの初期化"""
@@ -226,8 +228,8 @@ class CmmaPriceMonitor:
             'threshold': self.threshold,
             'offset': self.offset,
             'direction': self.direction,
-            'sort': self.sort,
-            'limit': self.limit,
+            'sort': self.volatility_sort,
+            'limit': self.volatility_limit,
         }
         try:
             self.logger.info(f"Fetching data from CMMA API with params: {params}")
@@ -263,9 +265,10 @@ class CmmaPriceMonitor:
         params = {
             'timeframe': self.volume_timeframe,
             'period': self.volume_period,
+            'min_volume_target': 'turnover',
             'min_volume': self.volume_threshold,
-            'limit': self.limit,
-            'sort': 'volume_desc' # 念のためソート順も指定
+            'limit': self.volume_limit,
+            'sort': self.volume_sort
         }
         try:
             self.logger.info(f"Fetching high volume data from CMMA API with params: {params}")
@@ -353,7 +356,7 @@ class CmmaPriceMonitor:
         # フッターに出来高条件を追加
         if self.volume_threshold > 0:
             formatted_vol_threshold = self._format_currency(self.volume_threshold)
-            embed["footer"]["text"] += f" | 出来高({self.volume_period}): >{formatted_vol_threshold}"
+            embed["footer"]["text"] += f" | 出来高(Turnover)({self.volume_period}): >{formatted_vol_threshold}"
 
         for token, _ in limited_tokens_with_hash:
             change_pct = token['change']['pct']
@@ -361,9 +364,9 @@ class CmmaPriceMonitor:
             sign = "+" if token['change']['direction'] == 'up' else ""
 
             value = f"**{sign}{change_pct:.2f}%**\n`{token['price']['prev_close']:.6f}` → `{token['price']['close']:.6f}`"
-            if 'volume' in token and token['volume'] is not None:
-                formatted_volume = self._format_currency(token['volume'])
-                value += f"\nVolume: `{formatted_volume}`"
+            if 'turnover' in token and token['turnover'] is not None:
+                formatted_turnover = self._format_currency(token['turnover'])
+                value += f"\nTurnover: `{formatted_turnover}`"
 
             embed["fields"].append({
                 "name": f"{direction_char} {token['symbol']}",
@@ -491,7 +494,7 @@ class CmmaPriceMonitor:
                     # 出来高データにシンボルが存在するかチェック
                     if symbol in high_volume_data:
                         # 出来高の値をtokenに追加
-                        token['volume'] = high_volume_data[symbol].get('total_volume')
+                        token['turnover'] = high_volume_data[symbol].get('total_turnover')
                         filtered_moves.append(token)
                     else:
                         self.logger.info(f"Symbol {symbol} filtered out by volume. Not in high volume list.")
