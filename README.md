@@ -2,7 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [ncmma (Discord Notification Daemon)](#ncmma-discord-notification-daemon)
+- [volatility-ncmma (Discord Notification Daemon)](#volatility-ncmma-discord-notification-daemon)
   - [概要](#%E6%A6%82%E8%A6%81)
   - [機能](#%E6%A9%9F%E8%83%BD)
   - [必要要件](#%E5%BF%85%E8%A6%81%E8%A6%81%E4%BB%B6)
@@ -16,7 +16,7 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# ncmma (Discord Notification Daemon)
+# volatility-ncmma (Discord Notification Daemon)
 
 ## 概要
 `ncmma` は、`cmma` API (Crypto Market Metrics API) から価格変動データを定期的に取得し、設定された閾値以上の変動があった場合にDiscordチャンネルに通知を送信するデーモンです。重複通知を避けるため、通知履歴はSQLiteデータベースで管理されます。
@@ -74,7 +74,7 @@ docker-compose up --build -d
 ### 3. 動作確認
 `ncmma` デーモンのログを確認できます。
 ```shell
-docker-compose logs -f ncmma-notifier
+docker-compose logs -f volatility-ncmma-notifier
 ```
 
 ## アプリケーションの停止
