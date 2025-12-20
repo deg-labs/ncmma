@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  ncmma-notifier:
+  volatility-ncmma-notifier:
     build:
       context: ./ncmma
     env_file:
